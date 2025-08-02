@@ -95,10 +95,12 @@ class FixedDualTableProcessor:
             
             cursor.execute('''
                 INSERT INTO detected_tokens 
-                (contract_address, token_name, symbol, matched_keywords, blockchain_age_seconds, platform)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                (address, name, contract_address, token_name, symbol, matched_keywords, blockchain_age_seconds, platform, status)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (contract_address) 
                 DO UPDATE SET 
+                    address = EXCLUDED.address,
+                    name = EXCLUDED.name,
                     token_name = EXCLUDED.token_name,
                     symbol = EXCLUDED.symbol,
                     matched_keywords = EXCLUDED.matched_keywords,
@@ -106,12 +108,15 @@ class FixedDualTableProcessor:
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
             ''', (
-                contract_address,
-                token_name,
+                contract_address,  # address
+                token_name,        # name
+                contract_address,  # contract_address
+                token_name,        # token_name
                 symbol,
                 keywords_array,
                 blockchain_age_seconds,
-                'LetsBonk'
+                'LetsBonk',
+                'detected'
             ))
             
             result = cursor.fetchone()

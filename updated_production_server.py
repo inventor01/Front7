@@ -88,14 +88,20 @@ class UpdatedProductionServer:
                 logger.info(f"🎯 NEW TOKEN: {token['name']} ({token['address'][:10]}...)")
                 
                 # Enhanced routing logic with fallback support
-                if token.get('name_status') == 'pending':
-                    # Store in pending_tokens table
-                    self.token_processor.insert_pending_token(
+                token_name = token.get('name', '')
+                
+                # Check if this is an "Unnamed Token" - route to fallback for special processing
+                if token_name.startswith('Unnamed Token') or token.get('name_status') == 'pending':
+                    # Store in fallback_processing_coins table for enhanced name resolution
+                    self.token_processor.insert_fallback_token(
                         contract_address=token['address'],
-                        placeholder_name=token['name'],
-                        blockchain_age_seconds=token.get('blockchain_age')
+                        token_name=token['name'],
+                        symbol=token.get('symbol'),
+                        blockchain_age_seconds=token.get('blockchain_age'),
+                        processing_status='name_pending',
+                        error_message='Token detected with placeholder name - needs accurate name resolution'
                     )
-                    logger.info(f"⚡ INSTANT PROCESSING: {token['name']} (stored in pending_tokens)")
+                    logger.info(f"🔄 FALLBACK PROCESSING: {token['name']} (stored in fallback_processing_coins for enhanced resolution)")
                     
                 elif token.get('name_status') == 'fallback' or token.get('api_failed'):
                     # Store in fallback_processing_coins table for special handling
