@@ -8,7 +8,7 @@ import asyncio
 import logging
 import time
 from datetime import datetime
-from dual_table_token_processor import DualTableTokenProcessor
+from fixed_dual_table_processor import FixedDualTableProcessor
 from dual_table_name_resolver import DualTableNameResolver
 
 logging.basicConfig(level=logging.INFO)
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class NotificationEnhancedRetryService:
     def __init__(self, interval_seconds=60):
-        self.processor = DualTableTokenProcessor()
+        self.processor = FixedDualTableProcessor()
         self.resolver = DualTableNameResolver()
         self.interval = interval_seconds
         self.running = False

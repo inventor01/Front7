@@ -11,14 +11,14 @@ import os
 import logging
 from datetime import datetime
 import json
-from dual_table_token_processor import DualTableTokenProcessor
+from fixed_dual_table_processor import FixedDualTableProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DualTableNameResolver:
     def __init__(self):
-        self.processor = DualTableTokenProcessor()
+        self.processor = FixedDualTableProcessor()
         self.running = False
         
     async def resolve_token_name_dexscreener(self, contract_address):
