@@ -7,6 +7,7 @@ This version includes proper fallback token handling for your Railway deployment
 import threading
 import time
 import logging
+import os
 from flask import Flask, jsonify
 from waitress import serve
 from new_token_only_monitor import NewTokenOnlyMonitor
@@ -53,6 +54,10 @@ class UpdatedProductionServer:
                 ],
                 'statistics': stats
             })
+        
+        @self.app.route('/health')
+        def health():
+            return jsonify({'status': 'healthy', 'timestamp': time.time()})
         
         @self.app.route('/status')
         def status():
@@ -251,34 +256,16 @@ class UpdatedProductionServer:
         
         logger.info("🚀 Starting enhanced server on 0.0.0.0:5000")
         
+        # Make sure port 5000 is available for Railway
+        actual_port = int(os.getenv('PORT', port))
+        logger.info(f"🌐 Binding to port: {actual_port}")
+        
         try:
-            serve(self.app, host=host, port=port)
-        except Exception as e:
-            logger.error(f"Server error: {e}")
-
-if __name__ == "__main__":
-    server = UpdatedProductionServer()
-    server.start_server()
+            serve(self.app, host=host, port=actual_port, threads=6)
         except Exception as e:
             logger.error(f"Server error: {e}")
             self.running = False
 
-def main():
-    """Main entry point for enhanced production deployment"""
-    import os
-    
-    # Verify database connection
-    database_url = os.getenv('DATABASE_URL')
-    if not database_url:
-        logger.error("❌ DATABASE_URL environment variable not found")
-        logger.error("💡 Ensure Railway database is properly configured")
-        return
-    
-    logger.info(f"✅ Database configured: {database_url.split('@')[1] if '@' in database_url else 'Local'}")
-    
-    # Start enhanced server
+if __name__ == "__main__":
     server = UpdatedProductionServer()
     server.start_server()
-
-if __name__ == "__main__":
-    main()
