@@ -83,6 +83,10 @@ class FixedDualTableProcessor:
             logger.error(f"❌ Failed to insert pending token: {e}")
             return None
     
+    def insert_detected_token(self, address, name, symbol=None, matched_keywords=None, name_status='resolved'):
+        """Insert token into detected_tokens table (alias for insert_resolved_token)"""
+        return self.insert_resolved_token(address, name, symbol, matched_keywords=matched_keywords)
+    
     def insert_resolved_token(self, contract_address, token_name, symbol=None, 
                             keyword=None, matched_keywords=None, blockchain_age_seconds=None):
         """Insert token directly into detected_tokens table for resolved tokens"""
@@ -95,26 +99,20 @@ class FixedDualTableProcessor:
             
             cursor.execute('''
                 INSERT INTO detected_tokens 
-                (address, name, contract_address, token_name, symbol, matched_keywords, blockchain_age_seconds, platform, status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (contract_address) 
+                (address, name, symbol, matched_keywords, platform, status)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (address) 
                 DO UPDATE SET 
-                    address = EXCLUDED.address,
                     name = EXCLUDED.name,
-                    token_name = EXCLUDED.token_name,
                     symbol = EXCLUDED.symbol,
                     matched_keywords = EXCLUDED.matched_keywords,
-                    blockchain_age_seconds = EXCLUDED.blockchain_age_seconds,
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
             ''', (
                 contract_address,  # address
                 token_name,        # name
-                contract_address,  # contract_address
-                token_name,        # token_name
                 symbol,
                 keywords_array,
-                blockchain_age_seconds,
                 'LetsBonk',
                 'detected'
             ))
@@ -355,19 +353,27 @@ class FixedDualTableProcessor:
                 )
             ''')
             
-            # Ensure detected_tokens has proper structure
+            # Ensure detected_tokens has proper structure (using existing schema)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS detected_tokens (
                     id SERIAL PRIMARY KEY,
-                    contract_address VARCHAR(255) UNIQUE NOT NULL,
-                    token_name VARCHAR(255),
+                    address VARCHAR(255) UNIQUE NOT NULL,
+                    name VARCHAR(255),
                     symbol VARCHAR(50),
                     matched_keywords TEXT[],
-                    blockchain_age_seconds DOUBLE PRECISION,
                     platform VARCHAR(100) DEFAULT 'LetsBonk',
-                    detected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'detected',
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    market_cap BIGINT,
+                    migrated_to_raydium BOOLEAN DEFAULT FALSE,
+                    migration_timestamp TIMESTAMP WITH TIME ZONE,
+                    notification_sent BOOLEAN DEFAULT FALSE,
+                    created_timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    detected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    detection_timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    name_status VARCHAR(50) DEFAULT 'resolved',
+                    social_links TEXT[]
                 )
             ''')
             
@@ -396,7 +402,7 @@ class FixedDualTableProcessor:
             
             # Create indexes
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_pending_tokens_contract ON pending_tokens(contract_address)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_detected_tokens_contract ON detected_tokens(contract_address)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_detected_tokens_address ON detected_tokens(address)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_fallback_processing_contract ON fallback_processing_coins(contract_address)')
             
             conn.commit()

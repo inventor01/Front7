@@ -11,7 +11,7 @@ from flask import Flask, jsonify
 from waitress import serve
 from new_token_only_monitor import NewTokenOnlyMonitor
 from notification_enhanced_retry_service import NotificationEnhancedRetryService
-from dual_table_token_processor import DualTableTokenProcessor
+from fixed_dual_table_processor import FixedDualTableProcessor
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,7 +23,7 @@ class FixedSimpleHybridServer:
         self.monitor_thread = None
         
         # Initialize dual table components
-        self.token_processor = DualTableTokenProcessor()
+        self.token_processor = FixedDualTableProcessor()
         self.name_resolver = NotificationEnhancedRetryService()
         
         # Create database tables if needed
@@ -76,14 +76,24 @@ class FixedSimpleHybridServer:
                     )
                     logger.info(f"⚡ INSTANT PROCESSING: {token['name']} (stored in pending_tokens)")
                     
+                elif token.get('name_status') == 'fallback':
+                    # Store in fallback_processing_coins table for special handling
+                    self.token_processor.insert_fallback_token(
+                        contract_address=token['address'],
+                        token_name=token['name'],
+                        symbol=token.get('symbol'),
+                        blockchain_age_seconds=token.get('blockchain_age'),
+                        processing_status='pending',
+                        error_message=token.get('error_message', 'Name resolution failed')
+                    )
+                    logger.info(f"🔄 FALLBACK PROCESSING: {token['name']} (stored in fallback_processing_coins)")
+                    
                 else:
                     # Store in detected_tokens table with real name
-                    self.token_processor.insert_detected_token(
+                    self.token_processor.insert_resolved_token(
                         contract_address=token['address'],
                         token_name=token['name'],
                         symbol=token.get('symbol', 'UNKNOWN'),
-                        platform=token.get('platform', 'letsbonk.fun'),
-                        social_links={'dexscreener': True},
                         blockchain_age_seconds=token.get('blockchain_age')
                     )
                     logger.info(f"✅ COMPLETE TOKEN: {token['name']} (stored in detected_tokens)")

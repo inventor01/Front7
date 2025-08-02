@@ -154,59 +154,18 @@ class RailwayOptimizedServer:
             monitor_thread.start()
             logger.info("🔍 Token monitor started")
             
-            # Start enhanced retry background service with proper Railway integration
-            def retry_service_worker():
+            # Start lightweight retry demonstration (non-blocking)
+            def quick_retry_demo():
                 try:
-                    import asyncio
-                    import time
-                    from fixed_dual_table_processor import FixedDualTableProcessor
-                    
-                    def run_retry_service():
-                        logger.info("🔄 Starting Railway retry service worker...")
-                        processor = FixedDualTableProcessor()
-                        
-                        while True:
-                            try:
-                                # Get fallback tokens that need processing
-                                tokens = processor.get_fallback_tokens(limit=20)
-                                
-                                if tokens:
-                                    logger.info(f"🎯 Processing {len(tokens)} fallback tokens for retry...")
-                                    
-                                    processed = 0
-                                    for token in tokens:
-                                        contract_address = token[0]
-                                        token_name = token[1]
-                                        retry_count = token[3] if len(token) > 3 else 0
-                                        
-                                        # Increment retry count
-                                        success = processor.update_retry_count(contract_address, 'fallback_processing_coins')
-                                        if success:
-                                            processed += 1
-                                            logger.info(f"📈 Retry {retry_count + 1} for {token_name[:30]}...")
-                                        
-                                        time.sleep(1)  # Rate limiting
-                                    
-                                    logger.info(f"✅ Processed {processed} tokens for retry increments")
-                                else:
-                                    logger.info("📭 No fallback tokens to process")
-                                
-                                # Sleep for 3 minutes before next cycle
-                                logger.info("😴 Retry service sleeping for 180 seconds...")
-                                time.sleep(180)
-                                
-                            except Exception as e:
-                                logger.error(f"❌ Retry service cycle error: {e}")
-                                time.sleep(60)  # Wait 1 minute on error
-                    
-                    run_retry_service()
-                    
+                    from railway_retry_startup import railway_startup_retries
+                    railway_startup_retries()
+                    logger.info("✅ Railway retry demonstration completed")
                 except Exception as e:
-                    logger.error(f"❌ Retry service worker error: {e}")
+                    logger.warning(f"⚠️ Retry demo failed (non-critical): {e}")
             
-            retry_thread = threading.Thread(target=retry_service_worker, daemon=True)
+            retry_thread = threading.Thread(target=quick_retry_demo, daemon=True)
             retry_thread.start()
-            logger.info("🔄 Railway retry background service started (3-minute intervals)")
+            logger.info("🔄 Railway retry demonstration started")
             
         except Exception as e:
             logger.error(f"Background services error: {e}")

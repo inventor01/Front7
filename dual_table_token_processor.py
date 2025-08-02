@@ -41,17 +41,17 @@ class DualTableTokenProcessor:
             
             cursor.execute('''
                 INSERT INTO pending_tokens 
-                (contract_address, placeholder_name, keyword, matched_keywords, 
-                 blockchain_age_seconds, name_status, retry_count)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                (contract_address, token_name, keyword, matched_keywords, 
+                 blockchain_age_seconds, retry_count)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (contract_address) 
                 DO UPDATE SET 
-                    placeholder_name = EXCLUDED.placeholder_name,
+                    token_name = EXCLUDED.token_name,
                     keyword = EXCLUDED.keyword,
                     matched_keywords = EXCLUDED.matched_keywords,
                     blockchain_age_seconds = EXCLUDED.blockchain_age_seconds,
                     retry_count = pending_tokens.retry_count + 1,
-                    last_attempt = CURRENT_TIMESTAMP
+                    last_retry_at = CURRENT_TIMESTAMP
                 RETURNING id
             ''', (
                 contract_address, 
@@ -59,20 +59,26 @@ class DualTableTokenProcessor:
                 keyword, 
                 keywords_array,
                 blockchain_age_seconds,
-                'pending',
                 0
             ))
             
-            token_id = cursor.fetchone()[0]
-            conn.commit()
-            
-            logger.info(f"⚡ PENDING TOKEN STORED: {placeholder_name} ({contract_address[:10]}...)")
-            logger.info(f"🔄 QUEUED: {placeholder_name} for background name resolution")
-            
-            cursor.close()
-            conn.close()
-            
-            return token_id
+            result = cursor.fetchone()
+            if result:
+                token_id = result[0]
+                conn.commit()
+                
+                logger.info(f"⚡ PENDING TOKEN STORED: {placeholder_name} ({contract_address[:10]}...)")
+                logger.info(f"🔄 QUEUED: {placeholder_name} for background name resolution")
+                
+                cursor.close()
+                conn.close()
+                
+                return token_id
+            else:
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return None
             
         except Exception as e:
             logger.error(f"❌ Failed to insert pending token: {e}")
@@ -88,18 +94,17 @@ class DualTableTokenProcessor:
             
             # Prepare data
             keywords_array = matched_keywords if matched_keywords else []
-            social_links_json = social_links if social_links else {}
             
             cursor.execute('''
                 INSERT INTO detected_tokens 
-                (address, name, symbol, matched_keywords, name_status, status, platform)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-                ON CONFLICT (address) 
+                (contract_address, token_name, symbol, matched_keywords, blockchain_age_seconds, platform)
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT (contract_address) 
                 DO UPDATE SET 
-                    name = EXCLUDED.name,
+                    token_name = EXCLUDED.token_name,
                     symbol = EXCLUDED.symbol,
                     matched_keywords = EXCLUDED.matched_keywords,
-                    name_status = 'resolved',
+                    blockchain_age_seconds = EXCLUDED.blockchain_age_seconds,
                     updated_at = CURRENT_TIMESTAMP
                 RETURNING id
             ''', (
@@ -107,20 +112,26 @@ class DualTableTokenProcessor:
                 token_name,
                 symbol,
                 keywords_array,
-                'resolved',
-                'detected',
+                blockchain_age_seconds,
                 'LetsBonk'
             ))
             
-            token_id = cursor.fetchone()[0]
-            conn.commit()
-            
-            logger.info(f"✅ RESOLVED TOKEN STORED: {token_name} ({contract_address[:10]}...)")
-            
-            cursor.close()
-            conn.close()
-            
-            return token_id
+            result = cursor.fetchone()
+            if result:
+                token_id = result[0]
+                conn.commit()
+                
+                logger.info(f"✅ RESOLVED TOKEN STORED: {token_name} ({contract_address[:10]}...)")
+                
+                cursor.close()
+                conn.close()
+                
+                return token_id
+            else:
+                conn.rollback()
+                cursor.close()
+                conn.close()
+                return None
             
         except Exception as e:
             logger.error(f"❌ Failed to insert resolved token: {e}")
