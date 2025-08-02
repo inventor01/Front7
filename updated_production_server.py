@@ -255,6 +255,12 @@ class UpdatedProductionServer:
             serve(self.app, host=host, port=port)
         except Exception as e:
             logger.error(f"Server error: {e}")
+
+if __name__ == "__main__":
+    server = UpdatedProductionServer()
+    server.start_server()
+        except Exception as e:
+            logger.error(f"Server error: {e}")
             self.running = False
 
 def main():
