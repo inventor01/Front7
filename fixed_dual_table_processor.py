@@ -440,6 +440,45 @@ class FixedDualTableProcessor:
             logger.error(f"❌ Failed to get system stats: {e}")
             return {'pending_tokens': 0, 'detected_tokens': 0, 'fallback_tokens': 0, 'total_tokens': 0}
 
+    def update_retry_count(self, contract_address, table='pending_tokens'):
+        """Update retry count for pending or fallback token"""
+        try:
+            conn = self.get_db_connection()
+            cursor = conn.cursor()
+            
+            if table == 'fallback_processing_coins':
+                cursor.execute('''
+                    UPDATE fallback_processing_coins 
+                    SET retry_count = retry_count + 1,
+                        last_retry_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE contract_address = %s
+                ''', (contract_address,))
+            else:
+                cursor.execute('''
+                    UPDATE pending_tokens 
+                    SET retry_count = retry_count + 1,
+                        last_retry_at = CURRENT_TIMESTAMP,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE contract_address = %s
+                ''', (contract_address,))
+            
+            affected_rows = cursor.rowcount
+            conn.commit()
+            cursor.close()
+            conn.close()
+            
+            if affected_rows > 0:
+                logger.info(f"📈 Retry count updated for {contract_address[:10]}... in {table}")
+                return True
+            else:
+                logger.warning(f"⚠️ No rows updated for {contract_address[:10]}... in {table}")
+                return False
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update retry count: {e}")
+            return False
+
 # Global instance for easy import
 dual_processor = FixedDualTableProcessor()
 
@@ -449,6 +488,7 @@ if __name__ == "__main__":
     processor.create_tables_if_needed()
     
     # Test inserting a fallback token
+    from datetime import datetime
     test_address = "TEST_FALLBACK_" + str(datetime.now().timestamp())
     fallback_id = processor.insert_fallback_token(
         test_address, 

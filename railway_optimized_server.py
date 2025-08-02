@@ -146,18 +146,26 @@ class RailwayOptimizedServer:
             monitor_thread.start()
             logger.info("🔍 Token monitor started")
             
-            # Start fallback resolver
-            def resolver_worker():
+            # Start enhanced retry background service
+            def retry_service_worker():
                 try:
-                    from notification_enhanced_retry_service import NotificationEnhancedRetryService
-                    resolver = NotificationEnhancedRetryService()
-                    resolver.start_background_name_resolution()
+                    import asyncio
+                    from enhanced_retry_background_service import EnhancedRetryBackgroundService
+                    
+                    def run_async_service():
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        service = EnhancedRetryBackgroundService(retry_interval=180)  # 3 minutes
+                        loop.run_until_complete(service.start_background_service())
+                    
+                    run_async_service()
+                    
                 except Exception as e:
-                    logger.error(f"Resolver error: {e}")
+                    logger.error(f"Enhanced retry service error: {e}")
             
-            resolver_thread = threading.Thread(target=resolver_worker, daemon=True)
-            resolver_thread.start()
-            logger.info("🔄 Background resolver started")
+            retry_thread = threading.Thread(target=retry_service_worker, daemon=True)
+            retry_thread.start()
+            logger.info("🔄 Enhanced retry background service started")
             
         except Exception as e:
             logger.error(f"Background services error: {e}")
