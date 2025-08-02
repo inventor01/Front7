@@ -193,7 +193,7 @@ class FixedDualTableProcessor:
                 keyword,
                 processing_status,
                 error_message,
-                0
+                1  # Start with retry count 1 - first attempt
             ))
             
             result = cursor.fetchone()
